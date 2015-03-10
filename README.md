@@ -7,7 +7,16 @@ Quick tutorials, examples and dev updates at http://sign0f4.blogspot.it
 
 This tool is completely based on sergio-proxy https://code.google.com/p/sergio-proxy/ and is an attempt to revive and update the project.
 
-Availible plugins:
+**Before submitting issues please read the appropriate section.**
+
+Dependency change!
+===================
+As of version 0.9.5 DNS tampering support needs NetfilterQueue v0.6 which has yet to be merged into the main repo!
+
+Download it from here https://github.com/fqrouter/python-netfilterqueue and manually install it.
+
+Availible plugins
+=================
 - Responder - LLMNR, NBT-NS and MDNS poisoner
 - SSLstrip+ - Partially bypass HSTS
 - Spoof - Redirect traffic using ARP Spoofing, ICMP Redirects or DHCP Spoofing and modify DNS queries
@@ -25,7 +34,8 @@ Availible plugins:
 - SMBAuth - Evoke SMB challenge-response auth attempts
 - Upsidedownternet - Flips images 180 degrees
 
-So far the most significant changes have been:
+Changelog
+=========
 
 - Addition of the Sniffer plugin which integrates Net-Creds (https://github.com/DanMcInerney/net-creds) currently supported protocols are:
   FTP, IRC, POP, IMAP, Telnet, SMTP, SNMP (community strings), NTLMv1/v2 (all supported protocols like HTTP, SMB, LDAP etc..) and Kerberos
@@ -51,8 +61,18 @@ https://github.com/secretsquirrel/the-backdoor-factory and code from BDFProxy ht
 
 - Addition of the app-cache poisoning attack by Krzysztof Kotowicz
 
-<h3>How to install on Kali</h3>
+Submitting Issues
+=================
+If you have *questions* regarding the framework please email me at byt3bl33d3r@gmail.com
 
-MITMf is now in tha kali linux repositories!
+If you find a *bug* please open an issue and include at least the following in the description:
+
+- Full command string you used
+- OS your using
+
+Also remeber Github markdown is your friend!
+
+How to install on Kali
+======================
 
 ```apt-get install mitmf```
