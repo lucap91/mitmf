@@ -13,11 +13,13 @@ import json
 import socket
 
 class SessionHijacker(Plugin):
-	name = "Session Hijacker"
-	optname = "hijack"
-	desc = "Performs session hijacking attacks against clients"
+	name       = "Session Hijacker"
+	optname    = "hijack"
+	desc       = "Performs session hijacking attacks against clients"
 	implements = ["cleanHeaders"] #["handleHeader"]
-	has_opts = True
+	version    = "0.1"
+	has_opts   = True
+	req_root   = False
 
 	def initialize(self, options):
 		'''Called if plugin is enabled, passed the options namespace'''
@@ -47,8 +49,6 @@ class SessionHijacker(Plugin):
 			t = threading.Thread(name='mallory_server', target=self.mallory_server, args=())
 			t.setDaemon(True)
 			t.start()
-
-		print "[*] Session Hijacker plugin online"
 
 	def cleanHeaders(self, request): # Client => Server
 		headers = request.getAllHeaders().copy()

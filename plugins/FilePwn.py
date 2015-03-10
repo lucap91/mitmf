@@ -53,11 +53,13 @@ from tempfile import mkstemp
 from configobj import ConfigObj
 
 class FilePwn(Plugin):
-    name = "FilePwn"
-    optname = "filepwn"
+    name       = "FilePwn"
+    optname    = "filepwn"
+    desc       = "Backdoor executables being sent over http using bdfactory"
     implements = ["handleResponse"]
-    has_opts = False
-    desc = "Backdoor executables being sent over http using bdfactory"
+    version    = "0.2"
+    has_opts   = False
+    req_root   = False
 
     def initialize(self, options):
         '''Called if plugin is enabled, passed the options namespace'''
@@ -97,8 +99,6 @@ class FilePwn(Plugin):
         self.FatPriority     = self.userConfig['targets']['ALL']['FatPriority']
         self.zipblacklist    = self.userConfig['ZIP']['blacklist']
         self.tarblacklist    = self.userConfig['TAR']['blacklist']
-
-        print "[*] FilePwn plugin online"
 
     def convert_to_Bool(self, aString):
         if aString.lower() == 'true':

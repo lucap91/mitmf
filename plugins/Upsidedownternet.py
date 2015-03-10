@@ -5,19 +5,19 @@ from PIL import Image
 
 
 class Upsidedownternet(Plugin):
-    name = "Upsidedownternet"
-    optname = "upsidedownternet"
-    desc = 'Flips images 180 degrees'
-    has_opts = False
+    name       = "Upsidedownternet"
+    optname    = "upsidedownternet"
+    desc       = 'Flips images 180 degrees'
     implements = ["handleResponse", "handleHeader"]
+    version    = "0.1"
+    has_opts   = False
+    req_root   = False
 
     def initialize(self, options):
         from PIL import Image, ImageFile
         globals()['Image'] = Image
         globals()['ImageFile'] = ImageFile
         self.options = options
-
-        print "[*] Upsidedownternet plugin online"
 
     def handleHeader(self, request, key, value):
         '''Kill the image skipping that's in place for speed reasons'''
